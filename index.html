@@ -4,11 +4,12 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Load 3D Tiles in Cesium</title>
-        <!-- 引入Cesium的CSS样式 -->
+        <!-- 引入Cesium和layui的CSS样式 -->
         <link
             rel="stylesheet"
             href="./node_modules/cesium/Build/Cesium/Widgets/widgets.css"
         />
+        <link rel="stylesheet" href="./node_modules/layui/dist/css/layui.css" />
         <style>
             html,
             body,
@@ -19,6 +20,10 @@
                 padding: 0;
                 overflow: hidden;
             }
+            .detail-class dl {/* CSS样式，作用是让.detail-class下的描述列表(dl)使用弹性布局，并且列表项之间有15像素的间隔。 */
+                display: flex;
+                gap: 15px;
+            }
         </style>
     </head>
     <body>
@@ -28,20 +33,22 @@
             value="点击分层分户"
         />
         <div id="cesiumContainer"></div>
-        <!-- 引入Cesium的JavaScript库 -->
+        <!-- 引入Cesium和layui的JavaScript库 -->
         <script src="./node_modules/cesium/Build/Cesium/Cesium.js"></script>
+        <script src="./node_modules/layui/dist/layui.js"></script>
+        <script src="./allList.js"></script>
         <script>
             // 这个是 Cesium 的 授权token
             /*
-          1- 先注册账号 https://ion.cesium.com/tokens?page=1
-          2- 复制 Access Tokens
-          */
+            1- 先注册账号 https://ion.cesium.com/tokens?page=1
+            2- 复制 Access Tokens
+            */
             Cesium.Ion.defaultAccessToken =
                 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMTUwMGJhMy00NjFmLTQ0ODctYjI1Ny01Y2Y0Yjc5Yjk5MDciLCJpZCI6MjE2OTQyLCJpYXQiOjE3MTYzNjAwODV9.OJT4Jr6ECBRVz4oyevdcXPuCUaDxwJ0HTwf3kIO9AH4'
 
             /*
-                获取 cesium 放置的位置
-                */
+                  获取 cesium 放置的位置
+                  */
             const viewer = new Cesium.Viewer('cesiumContainer')
 
             // 创建一个Cesium3DTileset实例并添加到场景中
@@ -62,42 +69,26 @@
                     // 处理加载错误
                     console.error('An error occurred: ', error)
                 })
-            const allList = [
-                [116.404804, 39.909125, 49.58],
-                // [116.405242, 39.909118, 49.58],
-                // [116.404193, 39.909127, 49.58],
-                // [116.404634, 39.909119, 49.58],
-                // [116.406289, 39.909129, 49.58],
-                // [116.405956, 39.909126, 49.58],
-                // [116.405914, 39.909116, 49.58],
-                // [116.405583, 39.909121, 49.58],
-                // [116.406152, 39.909797, 49.58],
-            ]
 
-
-//    arr[0],arr[1]
-
-            const addBoxClassificationPrimitive = () => {
-                allList.forEach(function(item) { fn(item)})
-                // for (let i = 0; i < allList.length; i++) {
-                //     // const element = array[i];
-                    
-                // }
+            function addBoxClassificationPrimitive() {
+                allList.forEach(item => fn(item))
             }
-            function fn(params) {
-                let length = 18.0,
-                    width = 20.0,
-                    height = 3.5,
-                    baseHeight = 0 //楼的长宽高和基地高
+            function fn(item) {
+                let length = 12.1,
+                    width = 14.2,
+                    height = 3,
+                    baseHeight = 1 //楼的长宽高和基地高
                 let center = {
                     //楼中心点位置
-                    x: -2025016.752089428,
-                    y: 5532291.539549444,
-                    z: 2436368.8372620787,
-                }
-                var cartesian3 = Cesium.Cartesian3.fromDegrees(params[0],params[1],params[2])
+                    //x: 2025016.752089428,
+                    //y: 5532291.539549444,
+                    //z: 2436368.8372620787,
+                    //z:0,
+                }               
+                var cartesian3 = Cesium.Cartesian3.fromDegrees(...item.position)
+                // 用Cesium库中的Cartesian3方法将地理坐标（经度、纬度）转换为三维笛卡尔坐标
 
-                for (var i = 0; i < 26; i++) {
+                for (var i = 0; i < item.detail.length; i++) {
                     //用于将一个东-北-上（ENU）坐标系中的点转换到一个固定的笛卡尔坐标系中。这个方法通常用于将飞机或无人机的位置从它们的局部坐标系转换到全局坐标系。
                     var modelMatrix =
                         Cesium.Transforms.eastNorthUpToFixedFrame(cartesian3)
@@ -112,7 +103,7 @@
                     //用于根据旋转和平移向量创建一个 4x4 变换矩阵。这个矩阵可以表示一个物体在空间中的旋转和平移，常用于设置场景中实体的位置和方向。
                     hpr = Cesium.Matrix4.fromRotationTranslation(
                         hprRotation,
-                        new Cesium.Cartesian3(0.0, 0.0, baseHeight + 4 * i) //楼层高度上的偏移
+                        new Cesium.Cartesian3(0.0, 0.0, baseHeight + 3 * i) //楼层高度上的偏移
                     )
                     Cesium.Matrix4.multiply(modelMatrix, hpr, modelMatrix)
 
@@ -135,7 +126,7 @@
                                 true
                             ), //设置初始化后是否显示
                         },
-                        id: i + 1,
+                        id: item.unitNum + '-' + `${i + 1}`,
                     })
                     buildingHighlight1 = viewer.scene.primitives.add(
                         new Cesium.ClassificationPrimitive({
@@ -147,26 +138,28 @@
                 }
             }
             var handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
-
             handler.setInputAction(function (movement) {
                 getCartesianCoordinate(movement.position)
                 var pickedObject = viewer.scene.pick(movement.position)
                 if (Cesium.defined(pickedObject) && pickedObject.primitive) {
-                    if (pickedObject.id)
-                        alert('你点击了第' + pickedObject.id + '户')
+                    if (pickedObject.id) {
+                        getAttribute(pickedObject.id)
+                        console.log('你点击了第' + pickedObject.id + '户')
+                    }
+
                     // 在这里添加你需要的点击事件处理逻辑
                 }
             }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
-            const getCartesianCoordinate = pos => {
+            const getCartesianCoordinate = pos => {   //获取点击位置的经纬度
                 console.log('pos: ', pos)
                 let cartesianCoordinate = viewer.scene.pickPosition(pos)
                 if (!cartesianCoordinate) {
                     return null
                 }
-                let cartographic =
-                    Cesium.Cartographic.fromCartesian(cartesianCoordinate)
-                let longitude = Cesium.Math.toDegrees(cartographic.longitude)
-                let latitude = Cesium.Math.toDegrees(cartographic.latitude)
+                let cartographic =    //将笛卡尔坐标转换为地理坐标
+                    Cesium.Cartographic.fromCartesian(cartesianCoordinate) 
+                let longitude = Cesium.Math.toDegrees(cartographic.longitude)   
+                let latitude = Cesium.Math.toDegrees(cartographic.latitude)   
                 let height = cartographic.height
                 let position = {
                     longitude: Number(longitude.toFixed(6)),
@@ -198,6 +191,36 @@
                 }
                 return new Cesium.Color(0.0, 1.0, 1.0, 0.5)
             }
-        </script>
+
+            function getAttribute(id) {     
+                const [unitNum, layers] = id.split('-')    
+                const unitItem = allList.find(
+                    item => item.unitNum === Number(unitNum)          //获取单元信息
+                )
+                const layersItem = unitItem.detail.find(
+                    item => item.layers === Number(layers)            //获取楼层信息
+                )
+                console.log('layersItem: ', layersItem.attribute)
+                show(layersItem.attribute,id)
+            }
+
+            function show(attribute,id) {
+                layer.open({
+                    area: ['500px', '300px'],
+                    title: '详情',
+                    skin: 'detail-class',
+                    content: `
+                            <dl><dt>门牌号:</dt><dd>${id}</dd></dl>
+                            <dl><dt>幢数:</dt><dd>${attribute.build_no}</dd></dl>
+                            <dl><dt>单元:</dt><dd>${attribute.unit}</dd></dl>
+                            <dl><dt>户主:</dt><dd>${attribute.name}</dd></dl>
+                            <dl><dt>状态:</dt><dd>${attribute.condition}</dd></dl>
+                            <dl><dt>面积:</dt><dd>${attribute.area}</dd></dl>
+                        `,
+                })
+            }
+            // addBoxClassificationPrimitive()
+        // </script>
     </body>
 </html>
+
