@@ -20,7 +20,8 @@
                 padding: 0;
                 overflow: hidden;
             }
-            .detail-class dl {/* CSS样式，作用是让.detail-class下的描述列表(dl)使用弹性布局，并且列表项之间有15像素的间隔。 */
+            .detail-class dl {
+                /* CSS样式，作用是让.detail-class下的描述列表(dl)使用弹性布局，并且列表项之间有15像素的间隔。 */
                 display: flex;
                 gap: 15px;
             }
@@ -74,17 +75,11 @@
                 allList.forEach(item => fn(item))
             }
             function fn(item) {
-                let length = 12.1,
-                    width = 14.2,
+                let length = 18,
+                    width = 10.5,
                     height = 3,
                     baseHeight = 1 //楼的长宽高和基地高
-                let center = {
-                    //楼中心点位置
-                    //x: 2025016.752089428,
-                    //y: 5532291.539549444,
-                    //z: 2436368.8372620787,
-                    //z:0,
-                }               
+
                 var cartesian3 = Cesium.Cartesian3.fromDegrees(...item.position)
                 // 用Cesium库中的Cartesian3方法将地理坐标（经度、纬度）转换为三维笛卡尔坐标
 
@@ -105,7 +100,18 @@
                         hprRotation,
                         new Cesium.Cartesian3(0.0, 0.0, baseHeight + 3 * i) //楼层高度上的偏移
                     )
+
+                    //旋转矩阵Matrix3
+                    let mz = Cesium.Matrix3.fromRotationZ(
+                        Cesium.Math.toRadians(85)
+                    )
+                    let rotationZ = Cesium.Matrix4.fromRotationTranslation(mz)
+                    //Cesium.Matrix4.multiply(modelMatrix, rotationX, modelMatrix)
+                    //Cesium.Matrix4.multiply(modelMatrix, rotationY, modelMatrix)
+                    Cesium.Matrix4.multiply(modelMatrix, rotationZ, modelMatrix)
+
                     Cesium.Matrix4.multiply(modelMatrix, hpr, modelMatrix)
+                    const build_no = item.detail[0].attribute.build_no
 
                     const instance = new Cesium.GeometryInstance({
                         geometry: Cesium.BoxGeometry.fromDimensions({
@@ -126,7 +132,7 @@
                                 true
                             ), //设置初始化后是否显示
                         },
-                        id: item.unitNum + '-' + `${i + 1}`,
+                        id: build_no + '-' + item.unitNum + '-' + `${i + 1}`,
                     })
                     buildingHighlight1 = viewer.scene.primitives.add(
                         new Cesium.ClassificationPrimitive({
@@ -150,16 +156,17 @@
                     // 在这里添加你需要的点击事件处理逻辑
                 }
             }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
-            const getCartesianCoordinate = pos => {   //获取点击位置的经纬度
+            const getCartesianCoordinate = pos => {
+                //获取点击位置的经纬度
                 console.log('pos: ', pos)
                 let cartesianCoordinate = viewer.scene.pickPosition(pos)
                 if (!cartesianCoordinate) {
                     return null
                 }
-                let cartographic =    //将笛卡尔坐标转换为地理坐标
-                    Cesium.Cartographic.fromCartesian(cartesianCoordinate) 
-                let longitude = Cesium.Math.toDegrees(cartographic.longitude)   
-                let latitude = Cesium.Math.toDegrees(cartographic.latitude)   
+                let cartographic = //将笛卡尔坐标转换为地理坐标
+                    Cesium.Cartographic.fromCartesian(cartesianCoordinate)
+                let longitude = Cesium.Math.toDegrees(cartographic.longitude)
+                let latitude = Cesium.Math.toDegrees(cartographic.latitude)
                 let height = cartographic.height
                 let position = {
                     longitude: Number(longitude.toFixed(6)),
@@ -192,19 +199,23 @@
                 return new Cesium.Color(0.0, 1.0, 1.0, 0.5)
             }
 
-            function getAttribute(id) {     
-                const [unitNum, layers] = id.split('-')    
-                const unitItem = allList.find(
-                    item => item.unitNum === Number(unitNum)          //获取单元信息
-                )
+            function getAttribute(id) {
+                const [build_no, unitNum, layers] = id.split('-')
+                const unitItem = allList
+                    .filter(
+                        item => item.detail[0].attribute.build_no === build_no
+                    )
+                    .find(
+                        item => item.unitNum === Number(unitNum) //获取单元信息
+                    )
                 const layersItem = unitItem.detail.find(
-                    item => item.layers === Number(layers)            //获取楼层信息
+                    item => item.layers === Number(layers) //获取楼层信息
                 )
                 console.log('layersItem: ', layersItem.attribute)
-                show(layersItem.attribute,id)
+                show(layersItem.attribute, id)
             }
 
-            function show(attribute,id) {
+            function show(attribute, id) {
                 layer.open({
                     area: ['500px', '300px'],
                     title: '详情',
@@ -219,8 +230,56 @@
                         `,
                 })
             }
-            // addBoxClassificationPrimitive()
-        // </script>
+
+            // 修改模型位置
+            function update3dtilesMaxtrix(tx, ty, rz, tz, rx, ry) {
+                let params = {
+                    tx: tx, //模型中心X轴坐标（经度，单位：十进制度）
+                    ty: ty, //模型中心Y轴坐标（纬度，单位：十进制度）
+                    tz: tz ? tz : 0, //模型中心Z轴坐标（高程，单位：米）
+                    rx: rx ? rx : 0, //X轴（经度）方向旋转角度（单位：度）
+                    ry: ry ? ry : 0, //Y轴（纬度）方向旋转角度（单位：度）
+                    rz: rz ? rz : 0, //Z轴（高程）方向旋转角度（单位：度）
+                }
+                //旋转
+                let mx = Cesium.Matrix3.fromRotationX(
+                    Cesium.Math.toRadians(params.rx)
+                )
+                let my = Cesium.Matrix3.fromRotationY(
+                    Cesium.Math.toRadians(params.ry)
+                )
+                let mz = Cesium.Matrix3.fromRotationZ(
+                    Cesium.Math.toRadians(params.rz)
+                )
+                let rotationX = Cesium.Matrix4.fromRotationTranslation(mx)
+                let rotationY = Cesium.Matrix4.fromRotationTranslation(my)
+                let rotationZ = Cesium.Matrix4.fromRotationTranslation(mz)
+                //平移
+                let position = Cesium.Cartesian3.fromDegrees(
+                    params.tx,
+                    params.ty,
+                    params.tz
+                )
+                let m = Cesium.Transforms.eastNorthUpToFixedFrame(position)
+
+                let scale = Cesium.Matrix4.fromUniformScale(1)
+                // //缩放
+                Cesium.Matrix4.multiply(m, scale, m)
+                //旋转、平移矩阵相乘
+                Cesium.Matrix4.multiply(m, rotationX, m)
+                Cesium.Matrix4.multiply(m, rotationY, m)
+                Cesium.Matrix4.multiply(m, rotationZ, m)
+                //赋值给tileset
+                return m
+            }
+            this.tileset.readyPromise.then(function (tileset) {
+                tileset._root.transform = update3dtilesMaxtrix(
+                    117.0238,
+                    32.5875,
+                    0
+                )
+                viewer.zoomTo(tileset)
+            })
+        </script>
     </body>
 </html>
-
